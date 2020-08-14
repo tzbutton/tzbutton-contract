@@ -4,36 +4,35 @@ from time import sleep
 
 LEADERSHIP_PAYMENT_AMOUNT = sp.mutez(200000) # two tenths of a tez
 COUNTDOWN_DROP_FACTOR = sp.nat(3*60*60*1000)
-MINIMAL_COUNT_DOWN_SECONDS = sp.int(5*60)
-MINIMAL_COUNT_DOWN_MILLISECONDS = MINIMAL_COUNT_DOWN_SECONDS*sp.int(1000)
+MINIMAL_COUNT_DOWN_MILLISECONDS = sp.nat(5*60*1000)
 
 class TZButton(sp.Contract):
     def __init__(self):
         self.init(
             leader=sp.address("tz1YtuZ4vhzzn7ssCt93Put8U9UJDdvCXci4"),
             leadership_start_timestamp=sp.timestamp(999999999999999),
-            countdown_seconds = sp.int(24*60*60)
+            countdown_milliseconds = sp.nat(24*60*60*1000)
         )
 
     @sp.entry_point
     def default(self, params):
         sp.verify(sp.amount == LEADERSHIP_PAYMENT_AMOUNT)
-        sp.verify(self.data.leadership_start_timestamp.add_seconds(self.data.countdown_seconds) > sp.now)
+        sp.verify(self.data.leadership_start_timestamp.add_seconds(sp.to_int(self.data.countdown_milliseconds/1000)) > sp.now)
         self.data.leader = sp.sender
         self.data.leadership_start_timestamp = sp.now
         
         balance_weight_tenthtez = sp.fst(sp.ediv(sp.balance,sp.mutez(1)).open_some())/sp.nat(100000) # mutez becomes tenth of a tez
-        countdown_milliseconds = self.data.countdown_seconds*sp.int(1000)
-        countdown_drop_milliseconds = sp.to_int((COUNTDOWN_DROP_FACTOR+balance_weight_tenthtez)/balance_weight_tenthtez)
-        sp.if countdown_milliseconds - countdown_drop_milliseconds > MINIMAL_COUNT_DOWN_MILLISECONDS:
-            self.data.countdown_seconds = sp.to_int(sp.as_nat(countdown_milliseconds - countdown_drop_milliseconds)/sp.nat(1000))
+
+        countdown_drop_milliseconds = (COUNTDOWN_DROP_FACTOR+balance_weight_tenthtez)/balance_weight_tenthtez
+        sp.if self.data.countdown_milliseconds - countdown_drop_milliseconds > sp.to_int(MINIMAL_COUNT_DOWN_MILLISECONDS):
+            self.data.countdown_milliseconds = sp.as_nat(self.data.countdown_milliseconds - countdown_drop_milliseconds)
         sp.else:
-            self.data.countdown_seconds = MINIMAL_COUNT_DOWN_SECONDS
+            self.data.countdown_milliseconds = MINIMAL_COUNT_DOWN_MILLISECONDS
         
     @sp.entry_point
     def withdraw(self, params):
         sp.verify(self.data.leader == sp.sender)
-        sp.verify(self.data.leadership_start_timestamp.add_seconds(self.data.countdown_seconds) < sp.now)
+        sp.verify(self.data.leadership_start_timestamp.add_seconds(sp.to_int(self.data.countdown_milliseconds/1000)) < sp.now)
         sp.send(sp.sender, sp.balance)
 
     @sp.entry_point
@@ -49,10 +48,10 @@ class TZButton(sp.Contract):
         sp.transfer(self.data.leadership_start_timestamp, sp.mutez(0), destination)
     
     @sp.entry_point
-    def get_countdown_seconds(self, params):
+    def get_countdown_milliseconds(self, params):
         destination = sp.set_type_expr(params.callback,
-                                       sp.TContract(sp.TInt))
-        sp.transfer(self.data.countdown_seconds, sp.mutez(0), destination)
+                                       sp.TContract(sp.TNat))
+        sp.transfer(self.data.countdown_milliseconds, sp.mutez(0), destination)
 
 
 class ViewConsumer(sp.Contract):
