@@ -5,11 +5,12 @@ from time import sleep
 LEADERSHIP_PAYMENT_AMOUNT = sp.mutez(200000) # two tenths of a tez
 COUNTDOWN_DROP_FACTOR = sp.nat(3*60*60*1000)
 MINIMAL_COUNT_DOWN_MILLISECONDS = sp.nat(5*60*1000)
+INITIAL_BALANCE = sp.mutez(100000000)
 
 class TZButton(sp.Contract):
     def __init__(self):
         self.init(
-            leader=sp.address("tz1YtuZ4vhzzn7ssCt93Put8U9UJDdvCXci4"),
+            leader=sp.address("tz1d393dnaDkbGk8GiKhhy1PX5qgF8XDKpEz"),
             leadership_start_timestamp=sp.timestamp(999999999999999),
             countdown_milliseconds = sp.nat(24*60*60*1000)
         )
@@ -21,7 +22,7 @@ class TZButton(sp.Contract):
         self.data.leader = sp.sender
         self.data.leadership_start_timestamp = sp.now
         
-        balance_weight_tenthtez = sp.fst(sp.ediv(sp.balance,sp.mutez(1)).open_some())/sp.nat(100000) # mutez becomes tenth of a tez
+        balance_weight_tenthtez = sp.fst(sp.ediv(sp.balance-INITIAL_BALANCE,sp.mutez(1)).open_some())/sp.nat(100000) # mutez becomes tenth of a tez
 
         countdown_drop_milliseconds = (COUNTDOWN_DROP_FACTOR+balance_weight_tenthtez)/balance_weight_tenthtez
         sp.if self.data.countdown_milliseconds - countdown_drop_milliseconds > sp.to_int(MINIMAL_COUNT_DOWN_MILLISECONDS):
@@ -91,6 +92,7 @@ def test():
     scenario.h2("Accounts")
     scenario.show([creator, alice, bob, dan])
     tz_button_contract = TZButton()
+    tz_button_contract.set_initial_balance(INITIAL_BALANCE)
     scenario += tz_button_contract
     
     viewer_contract = ViewConsumer()
@@ -110,27 +112,25 @@ def test():
     scenario += tz_button_contract.default().run(sender=alice, amount=sp.mutez(200000))
 
     scenario.p("Bob pays correct amount")
-    scenario += tz_button_contract.default().run(sender=bob, amount=sp.mutez(200000), now=1)
+    scenario += tz_button_contract.default().run(sender=bob, amount=sp.mutez(200000), now=sp.timestamp(1))
 
     scenario.p("Alice pays correct amount after bob again")
-    scenario += tz_button_contract.default().run(sender=alice, amount=sp.mutez(200000), now=2)
+    scenario += tz_button_contract.default().run(sender=alice, amount=sp.mutez(200000), now=sp.timestamp(2))
 
     scenario.h2("Withdraw")
     scenario.p("Leader tries to withdraw before countdown")
     scenario += tz_button_contract.withdraw().run(sender=alice, valid=False)
 
     scenario.p("Non-Leader tries to withdraw after countdown")
-    scenario += tz_button_contract.withdraw().run(sender=bob, valid=False, now=60*60*24)
+    scenario += tz_button_contract.withdraw().run(sender=bob, valid=False, now=sp.timestamp(60*60*24))
 
     scenario.p("Non-Leader tries to pays correct amount after countdown")
-    scenario += tz_button_contract.default().run(sender=bob, amount=sp.mutez(200000), valid=False, now=60*60*24)
+    scenario += tz_button_contract.default().run(sender=bob, amount=sp.mutez(200000), valid=False, now=sp.timestamp(60*60*24))
 
     scenario.p("Leader tries to pays correct amount after countdown")
-    scenario += tz_button_contract.default().run(sender=alice, amount=sp.mutez(200000), valid=False, now=60*60*24)
+    scenario += tz_button_contract.default().run(sender=alice, amount=sp.mutez(200000), valid=False, now=sp.timestamp(60*60*24))
 
     scenario.p("Leader tries to withdraw after countdown")
-    scenario += tz_button_contract.withdraw().run(sender=alice, now=60*60*24)
-
-
+    scenario += tz_button_contract.withdraw().run(sender=alice, now=sp.timestamp(60*60*24))
 
 
