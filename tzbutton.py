@@ -1,6 +1,4 @@
-
 import smartpy as sp
-from time import sleep
 
 LEADERSHIP_PAYMENT_AMOUNT = sp.mutez(200000) # two tenths of a tez
 COUNTDOWN_DROP_FACTOR = sp.nat(3*60*60*1000)
@@ -11,7 +9,7 @@ class TZButton(sp.Contract):
     def __init__(self):
         self.init(
             leader=sp.address("tz1d393dnaDkbGk8GiKhhy1PX5qgF8XDKpEz"),
-            leadership_start_timestamp=sp.timestamp(999999999999999),
+            leadership_start_timestamp=sp.timestamp(999999999),
             countdown_milliseconds = sp.nat(24*60*60*1000)
         )
 
@@ -59,7 +57,7 @@ class ViewConsumer(sp.Contract):
     def __init__(self):
         self.init(
             leader=sp.address("tz1YtuZ4vhzzn7ssCt93Put8U9UJDdvCXci4"),
-            leadership_start_timestamp=sp.timestamp(999999999999999),
+            leadership_start_timestamp=sp.timestamp(999999999),
             countdown_seconds = sp.int(24*60*60)
         )
 
@@ -106,7 +104,7 @@ def test():
     scenario += tz_button_contract.default().run(sender=alice, amount=sp.mutez(20000), valid=False)
 
     scenario.p("Alice pays too much")
-    scenario += tz_button_contract.default().run(sender=alice, amount=sp.mutez(20001), valid=False)
+    scenario += tz_button_contract.default().run(sender=alice, amount=sp.mutez(200001), valid=False)
 
     scenario.p("Alice pays correct amount")
     scenario += tz_button_contract.default().run(sender=alice, amount=sp.mutez(200000))
